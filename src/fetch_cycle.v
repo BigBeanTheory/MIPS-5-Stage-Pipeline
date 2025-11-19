@@ -1,0 +1,25 @@
+module fetch_cycle(clk, rst, PCSrcE, PCTargetE, InstrD, PCD, PCPlus4D);
+    input clk, rst, PCSrcE;
+    input [31:0] PCTargetE;
+    output [31:0] InstrD, PCD, PCPlus4D;
+
+    wire [31:0] PC_F, PCF, PCPlus4F, InstrF;
+    reg [31:0] InstrF_reg, PCF_reg, PCPlus4F_reg;
+
+    Mux PC_MUX (.a(PCPlus4F), .b(PCTargetE), .s(PCSrcE), .c(PC_F));
+    PC_Module Program_Counter (.clk(clk), .rst(rst), .PC(PCF), .PC_Next(PC_F));
+    Instruction_Memory IMEM (.rst(rst), .A(PCF), .RD(InstrF));
+    PC_Adder PC_adder (.a(PCF), .b(32'h4), .c(PCPlus4F));
+
+    always @(posedge clk or negedge rst) begin
+        if (!rst) begin
+            InstrF_reg <= 0; PCF_reg <= 0; PCPlus4F_reg <= 0;
+        end else begin
+            InstrF_reg <= InstrF; PCF_reg <= PCF; PCPlus4F_reg <= PCPlus4F;
+        end
+    end
+
+    assign InstrD = rst ? InstrF_reg : 0;
+    assign PCD = rst ? PCF_reg : 0;
+    assign PCPlus4D = rst ? PCPlus4F_reg : 0;
+endmodule
