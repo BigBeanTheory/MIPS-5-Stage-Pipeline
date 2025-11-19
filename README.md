@@ -1,6 +1,6 @@
 # 5-Stage Pipelined MIPS Processor with Hazard Handling
 
-![Datapath Overview](datapath_full.jpg)  
+![Datapath Overview](images/datapath_full.jpg)  
 *Complete 5-Stage MIPS Pipeline Datapath with Control Signals and Data Paths*
 
 This repository contains a fully functional **5-stage pipelined MIPS processor** implemented in synthesizable Verilog HDL. It features advanced hazard resolution techniques:
@@ -37,19 +37,19 @@ The design achieves **zero stalls** for data hazards in the provided test progra
 
 1. **Instruction Fetch (IF)**  
    PC → Instruction Memory → Fetch 32-bit instruction → Compute PC+4  
-   ![IF Stage](docs/images/IF.jpg)
+   ![IF Stage](images/IF.jpg)
 
 2. **Instruction Decode (ID)**  
    Decode opcode/funct → Generate control signals → Read rs/rt from Register File → Sign-extend immediate  
-   ![ID Stage](docs/images/ID.jpg)
+   ![ID Stage](images/ID.jpg)
 
 3. **Execute (EX)**  
    ALU operation → Address generation → Operand forwarding muxes → Branch condition & target evaluation  
-   ![EX Stage with Forwarding](docs/images/Write-Main.jpg)
+   ![EX Stage with Forwarding](images/Write-Main.jpg)
 
 4. **Memory Access (MEM)**  
    Load/Store using calculated address → Data Memory read/write  
-   ![MEM Stage](docs/images/MEM.jpg)
+   ![MEM Stage](images/MEM.jpg)
 
 5. **Write Back (WB)**  
    Mux selects ALU result or loaded data → Write to Register File (x0 hardwired to 0)
@@ -203,12 +203,6 @@ Confirms that pipeline overhead becomes negligible for longer programs.
 Just clone and run `./sim/build.sh` to simulate instantly!
 
 ---
-
-## Course Context & References
-
-Developed by **Gurneesh Singh Banga** (2301201009@krmu.edu.in)  
-for **ENCA302 (BCA Semester V)** – KR Mangalam University  
-Guided by **Dr. Kishore Ayyala**
 
 Main references:
 - Patterson & Hennessy – *Computer Organization and Design: The Hardware/Software Interface* (MIPS Edition)
