@@ -1,57 +1,217 @@
 # 5-Stage Pipelined MIPS Processor with Hazard Handling
 
-This repository implements a synthesizable 5-stage pipelined MIPS processor in Verilog, featuring operand forwarding for data hazards and early branch resolution for control hazards. The design supports R-type (ADD, SUB, AND, OR, XOR), I-type (ADDI, ANDI, LW, SW), and branch (BEQ) instructions. Initially prototyped in Logisim for validation, then implemented in Verilog and verified with Icarus Verilog and GTKWave. Achieves CPI of 2.0 for short test programs (4 instructions) and approaches 1.0 for longer sequences, with zero stalls for resolved hazards. [file:1]
+![Datapath Overview](datapath_full.jpg)  
+*Complete 5-Stage MIPS Pipeline Datapath with Control Signals and Data Paths*
 
-## Features
-- **Pipeline Stages**: Instruction Fetch (IF), Decode (ID), Execute (EX), Memory (MEM), Write Back (WB) with inter-stage registers.
-- **Hazard Resolution**: Forwarding from EX/MEM and MEM/WB stages eliminates RAW data hazards; static predict-not-taken for branches with 2-cycle mispredict penalty.
-- **ALU**: 16 operations including arithmetic, logical, shifts (SLL, SRL, SRA), and comparisons (SLT, SLTU).
-- **Memories**: Instruction ROM (64 entries) and Data RAM with load/store support.
-- **Verification**: Logisim simulation for structural checks; Verilog testbench for functional and performance analysis (500ns runtime, 10ns clock).
-- **Test Program**: 4-instruction sequence demonstrating ADD, SW, LW, BEQ with inherent hazards resolved via forwarding. [file:1]
+This repository contains a fully functional **5-stage pipelined MIPS processor** implemented in synthesizable Verilog HDL. It features advanced hazard resolution techniques:
 
-## Architecture Overview
-The processor follows the classic MIPS pipeline model:
-- **IF**: PC increment and instruction fetch from IMEM.
-- **ID**: Decode, register reads, sign-extend immediates; control signals generated.
-- **EX**: ALU computation (with forwarding muxes), branch target/address evaluation.
-- **MEM**: Data memory access for LW/SW.
-- **WB**: Result write to register file (x0 hardwired to 0).
+- **Operand forwarding** (from EX/MEM and MEM/WB) for data hazards  
+- **Early branch evaluation** in the EX stage + static "predict-not-taken" for control hazards  
 
-Data hazards are detected in the hazard unit and resolved by multiplexing ALU inputs from pipeline registers. Control hazards use PCSrcE for branch redirection in EX. For visuals, see `docs/design_diagram.png` and simulation traces in `docs/simulation_waveforms.png`. [file:1]
+The processor supports a practical subset of the MIPS ISA:
 
-## Prerequisites
-- Icarus Verilog (iverilog, vvp): For compilation and simulation.
-- GTKWave: For waveform viewing.
-- Logisim-Evolution: For prototyping (optional, Java-based).
-- Bash environment for build script.
+- **R-type**: ADD, SUB, AND, OR, XOR  
+- **I-type**: ADDI, ANDI, LW, SW  
+- **Branch**: BEQ  
 
-Install on Ubuntu/Debian: `sudo apt install iverilog gtkwave logisim-evolution`. [file:1]
+The design achieves **zero stalls** for data hazards in the provided test program and demonstrates a CPI of **2.0** for short sequences (4 instructions) due to pipeline fill overhead, approaching the ideal **1.0** CPI for longer programs.
 
-## Setup and Usage
-1. Clone the repo: `git clone <repo-url> && cd <repo-name>`.
-2. Run simulation:
-   - `./build.sh`: Compiles modules, runs testbench, generates `pipeline.vcd`.
-   - Open waveforms: `gtkwave pipeline.vcd waves.gtkw` (views PC, instructions, ALU results, controls).
-3. Prototype in Logisim: Open `logisim/mips_pipeline.circ` and simulate stages.
-4. Analyze results: Check CPI (8 cycles for 4 instructions) and hazard-free execution in waveforms. No stalls for test program; branch not taken (PCSrcE=0). [file:1]
+---
 
-Expected output: ALUResultM=0xF (from ADD), memory store/load correct, BEQ skips to 0x10.
+## Project Objectives and Scope
+
+- Implement a classic 5-stage pipeline (IF → ID → EX → MEM → WB) with inter-stage registers  
+- Resolve RAW data hazards using comprehensive forwarding (no stalls in test cases)  
+- Handle control hazards with EX-stage branch resolution and a 2-cycle misprediction penalty  
+- Support essential MIPS instructions including arithmetic, logic, memory, and branching  
+- Verify functionality and performance via Icarus Verilog + GTKWave simulation  
+- Demonstrate modular, synthesizable Verilog suitable for FPGA/ASIC implementation  
+
+**Limitations**: No dynamic branch prediction, no full MIPS ISA (e.g., no jumps, floating-point, or exceptions), load-use hazards require stall logic (implemented but not triggered in test program).
+
+---
+
+## System Architecture
+
+### Pipeline Stages
+
+1. **Instruction Fetch (IF)**  
+   PC → Instruction Memory → Fetch 32-bit instruction → Compute PC+4  
+   ![IF Stage](docs/images/IF.jpg)
+
+2. **Instruction Decode (ID)**  
+   Decode opcode/funct → Generate control signals → Read rs/rt from Register File → Sign-extend immediate  
+   ![ID Stage](docs/images/ID.jpg)
+
+3. **Execute (EX)**  
+   ALU operation → Address generation → Operand forwarding muxes → Branch condition & target evaluation  
+   ![EX Stage with Forwarding](docs/images/Write-Main.jpg)
+
+4. **Memory Access (MEM)**  
+   Load/Store using calculated address → Data Memory read/write  
+   ![MEM Stage](docs/images/MEM.jpg)
+
+5. **Write Back (WB)**  
+   Mux selects ALU result or loaded data → Write to Register File (x0 hardwired to 0)
+
+Pipeline registers (IF/ID, ID/EX, EX/MEM, MEM/WB) store over 100 bits each, isolating stages and preserving state.
+
+### Hazard Handling
+
+#### Data Hazards – Operand Forwarding
+The **Hazard Unit** detects RAW dependencies and generates `ForwardAE`/`ForwardBE` (2-bit):
+- `10`: Forward from EX/MEM (previous ALU result)
+- `01`: Forward from MEM/WB (result about to be written back)
+- `00`: Use value from ID/EX (register file read)
+
+All data hazards in the test program are resolved **without stalls**.
+
+#### Control Hazards – Branch Handling
+- Branch decision made in **EX stage**
+- Static **predict-not-taken** policy
+- On taken branch → flush two instructions → 2-cycle penalty
+- Test program’s BEQ is **not taken** → no penalty
+
+---
+
+## Logisim Prototyping
+
+Before Verilog coding, the entire datapath was prototyped and validated in **Logisim**:
+- Modular subcircuits for each stage and component
+- Main circuit: `mips_pipeline.circ`
+- Manual clock stepping to verify forwarding paths, branch logic, and memory operations
+
+---
+
+## Verilog Implementation
+
+### Module Hierarchy
+
+| Module Name          | File                    | Description                                      |
+|----------------------|-------------------------|--------------------------------------------------|
+| `pipeline_top`       | `pipeline_top.v`        | Top-level integration of all stages & memories   |
+| `fetch_cycle`        | `fetch_cycle.v`         | IF stage + PC logic                              |
+| `decode_cycle`       | `decode_cycle.v`        | ID stage, control decoder, sign-extend           |
+| `execute_cycle`      | `execute_cycle.v`       | EX stage, ALU, forwarding, branch logic          |
+| `memory_cycle`       | `memory_cycle.v`        | MEM stage, DMEM interface                        |
+| `writeback_cycle`    | `writeback_cycle.v`     | WB mux and register write control                |
+| `hazard_unit`        | `hazard_unit.v`         | Forwarding control signal generation             |
+| `ALU`                | `ALU.v`                 | 16 operations (ADD, SUB, AND, OR, SLT, shifts…)  |
+| `instruction_memory` | `instruction_memory.v`  | 64-entry ROM (PC[7:2] addressing)                |
+| `data_memory`        | `data_memory.v`         | Synchronous RAM, byte-addressable                |
+| `register_file`      | `register_file.v`       | 32 × 32-bit registers, async read, sync write    |
+
+### Key Code Snippet – Hazard Unit (Simplified)
+
+```verilog
+module hazard_unit(
+    input rst, RegWriteM, RegWriteW,
+    input [4:0] RD_M, RD_W, Rs1_E, Rs2_E,
+    output reg [1:0] ForwardAE, ForwardBE
+);
+    always @(*) begin
+        ForwardAE = 2'b00; ForwardBE = 2'b00;
+
+        if (RegWriteM && (RD_M != 5'h00) && (RD_M == Rs1_E)) ForwardAE = 2'b10;
+        else if (RegWriteW && (RD_W != 5'h00) && (RD_W == Rs1_E)) ForwardAE = 2'b01;
+
+        if (RegWriteM && (RD_M != 5'h00) && (RD_M == Rs2_E)) ForwardBE = 2'b10;
+        else if (RegWriteW && (RD_W != 5'h00) && (RD_W == Rs2_E)) ForwardBE = 2'b01;
+    end
+endmodule
+```
+
+### Test Program (`memfile.hex`)
+
+```asm
+0062E233    // add $t0, $t1, $t2          ($t0 = 5 + A = F)
+00A4A423    // sw  $t0, 0($t2)            (Mem[A] = F)   → EX/MEM forward
+00832303    // lw  $t1, 0($t1)            (load from Mem[5])
+00008063    // beq $t0, $t1, +8           (F != loaded value → not taken)
+```
+
+Exercises both forwarding paths and branch logic.
+
+---
+
+## Simulation and Verification
+
+### Tools
+- **Icarus Verilog** – compilation & simulation
+- **GTKWave** – waveform viewing
+
+### Build & Run (`build.sh`)
+
+```bash
+#!/bin/bash
+iverilog -g2012 -o pipeline_sim src/*.v sim/testbench.v
+vvp pipeline_sim
+gtkwave sim/pipeline.vcd waves.gtkw
+```
+
+### Key Waveform
+![Simulation Waveforms](docs/images/pipeline.jpg)
+
+**Observations**:
+- 8 clock cycles for 4 instructions → CPI = 2.0
+- Correct forwarding: `WriteDataM` = 0xF from ADD
+- `PCSrcE` = 0 (branch not taken)
+- Final register write: `$t0` = 0xF
+
+### Execution Timeline
+
+| Instruction | CC1 | CC2 | CC3 | CC4 | CC5 | CC6 | CC7 | CC8 |
+|-------------|-----|-----|-----|-----|-----|-----|-----|-----|
+| add         | IF  | ID  | EX  | MEM | WB  |     |     |     |
+| sw          |     | IF  | ID  | EX  | MEM | WB  |     |     |
+| lw          |     |     | IF  | ID  | EX  | MEM | WB  |     |
+| beq         |     |     |     | IF  | ID  | EX  | MEM | WB  |
+
+Perfect overlap after pipeline fill → **no stalls**
+
+---
 
 ## Performance Analysis
-- **CPI Calculation**: For N=4 instructions, total cycles=8 (pipeline fill/drain overhead), CPI=2.0. For N→∞, CPI≈1.0 (96.2% efficiency for N=100). [file:1]
-- **Hazard Verification**: RAW hazards (e.g., SW after ADD) resolved by EX/MEM forwarding; LW-BEQ by MEM/WB. Load-use hazards would stall if present (not in test).
-- **Limitations**: No dynamic branch prediction; assumes 32-bit MIPS subset. Extendable for full ISA or multi-cycle execution.
 
-## Project Structure
-- `src/`: Verilog modules (pipeline_top.v, alu.v, etc.).
-- `sim/`: Testbench, memfile.hex, build.sh.
-- `logisim/`: .circ files for prototyping.
-- `docs/`: Report PDF, diagrams, waveforms.
-- `report.pdf`: Full ENCA302 assignment report with methodology, results, and references. [file:1]
+For a program with **N** instructions and no hazards:
 
-## Course Context
-Developed for ENCA302: Introduction to Computer Organization and Architecture (KR Mangalam University, BCA Semester V). References: Patterson & Hennessy (5th ed.), MIPS ISA docs. [file:1]
+\[
+\text{Total Cycles} = N + 4 \quad \Rightarrow \quad \text{CPI} = \frac{N + 4}{N}
+\]
 
-## License
-MIT License. Academic use encouraged; cite the report for derivatives.
+| N     | Total Cycles | CPI   | Efficiency       |
+|-------|--------------|-------|------------------|
+| 4     | 8            | 2.00  | 50%              |
+| 10    | 14           | 1.40  | 71.4%            |
+| 100   | 104          | 1.04  | ~96.2%           |
+
+Confirms that pipeline overhead becomes negligible for longer programs.
+
+---
+
+## Repository Structure
+
+```
+├── src/                  → All Verilog modules
+├── sim/                  → testbench.v, memfile.hex, build.sh, waves.gtkw
+├── logisim/              → Logisim prototype (.circ files)
+├── docs/                 → Full project report (report.pdf) + images
+├── .gitignore
+└── README.md             → This file
+```
+
+Just clone and run `./sim/build.sh` to simulate instantly!
+
+---
+
+## Course Context & References
+
+Developed by **Gurneesh Singh Banga** (2301201009@krmu.edu.in)  
+for **ENCA302 (BCA Semester V)** – KR Mangalam University  
+Guided by **Dr. Kishore Ayyala**
+
+Main references:
+- Patterson & Hennessy – *Computer Organization and Design: The Hardware/Software Interface* (MIPS Edition)
+- Official MIPS Instruction Set documentation
+
+Tools used: Logisim-Evolution, Icarus Verilog, GTKWave
