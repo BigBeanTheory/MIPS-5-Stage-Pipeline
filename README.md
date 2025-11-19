@@ -150,7 +150,7 @@ gtkwave sim/pipeline.vcd waves.gtkw
 ```
 
 ### Key Waveform
-![Simulation Waveforms](docs/images/pipeline.jpg)
+![Simulation Waveforms](images/pipeline.jpg)
 
 **Observations**:
 - 8 clock cycles for 4 instructions → CPI = 2.0
