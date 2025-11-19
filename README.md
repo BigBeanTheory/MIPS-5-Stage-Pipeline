@@ -194,9 +194,7 @@ Confirms that pipeline overhead becomes negligible for longer programs.
 ```
 ├── src/                  → All Verilog modules
 ├── sim/                  → testbench.v, memfile.hex, build.sh, waves.gtkw
-├── logisim/              → Logisim prototype (.circ files)
-├── docs/                 → Full project report (report.pdf) + images
-├── .gitignore
+├── logisim/              → Logisim prototype (.circ file)
 └── README.md             → This file
 ```
 
@@ -207,5 +205,6 @@ Just clone and run `./sim/build.sh` to simulate instantly!
 Main references:
 - Patterson & Hennessy – *Computer Organization and Design: The Hardware/Software Interface* (MIPS Edition)
 - Official MIPS Instruction Set documentation
+- 32-Bit RISC Processor Pipeline (Logisim) by Kishore (kishore881) – Logisim prototype for 5-stage pipelined RISC design, adapted and translated to Verilog for MIPS ISA with hazard handling enhancements
 
 Tools used: Logisim-Evolution, Icarus Verilog, GTKWave
